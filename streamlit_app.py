@@ -42,11 +42,10 @@ def procesar_imagen_mejorado(imagen, n_puntos, area_rectangulo_real):
     
     return area_aprox, puntos_dentro, img_bin, puntos_x, puntos_y
 
-# INTERFAZ MEJORADA SIN PLANTA
+# INTERFAZ MEJORADA
 st.set_page_config(
     page_title="Calculadora de Áreas - Método Monte Carlo", 
-    layout="wide",
-    page_icon="📐"  # Icono de regla en lugar de planta
+    layout="wide"
 )
 
 st.title("📐 Calculadora de Áreas - Método Monte Carlo")
@@ -57,26 +56,22 @@ st.sidebar.header("⚙️ Configuración")
 
 uploaded_file = st.sidebar.file_uploader(
     "Sube tu imagen:", 
-    type=['png', 'jpg', 'jpeg'],
-    help="💡 Consejo: Usa fondos contrastantes y buena iluminación"
+    type=['png', 'jpg', 'jpeg']
 )
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     
-    col1, col2 = st.columns(2)
+    # MOSTRAR IMAGEN EN SIDEBAR
+    st.sidebar.image(image, caption="Tu imagen", use_column_width=True)
     
-    with col1:
-        st.subheader("🖼️ Imagen Original")
-        st.image(image, use_column_width=True)
-    
-    # Parámetros mejorados
+    # PARÁMETROS - ESTO ES LO MÁS IMPORTANTE
     st.sidebar.subheader("📊 Parámetros de Cálculo")
+    
     area_ref = st.sidebar.number_input(
         "Área de referencia (cm²):", 
         min_value=0.1, 
-        value=100.0,
-        help="Área total del rectángulo que contiene tu figura en la realidad"
+        value=100.0
     )
     
     n_puntos = st.sidebar.select_slider(
@@ -85,24 +80,24 @@ if uploaded_file is not None:
         value=5000
     )
     
+    # ⚠️⚠️⚠️ ESTE ES EL BOTÓN QUE DEBERÍA APARECER ⚠️⚠️⚠️
     if st.sidebar.button("🎯 Calcular Área", type="primary"):
-        with st.spinner("Procesando imagen y lanzando puntos aleatorios..."):
+        with st.spinner("Procesando imagen..."):
             area_calculada, puntos_dentro, img_procesada, px, py = procesar_imagen_mejorado(
                 image, n_puntos, area_ref
             )
         
+        # MOSTRAR RESULTADOS
+        st.success(f"**📏 Área calculada: {area_calculada:.2f} cm²**")
+        st.info(f"🎯 Puntos dentro de la figura: {puntos_dentro} de {n_puntos} ({(puntos_dentro/n_puntos)*100:.1f}%)")
+        
+        # Gráfico
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(img_procesada, caption="Imagen procesada", use_column_width=True)
+        
         with col2:
-            st.subheader("📈 Resultados")
-            
-            # Mostrar imagen procesada
-            st.image(img_procesada, caption="Imagen procesada para detección", use_column_width=True)
-            
-            # Resultados
-            st.success(f"**📏 Área calculada: {area_calculada:.2f} cm²**")
-            st.info(f"🎯 Puntos dentro de la figura: {puntos_dentro} de {n_puntos} ({(puntos_dentro/n_puntos)*100:.1f}%)")
-            
             # Gráfico de convergencia
-            st.subheader("📊 Evolución de la Estimación")
             iteraciones = np.linspace(100, n_puntos, 20, dtype=int)
             areas_parciales = []
             
@@ -111,12 +106,11 @@ if uploaded_file is not None:
                 area_parcial = (puntos_parcial / n) * area_ref
                 areas_parciales.append(area_parcial)
             
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(iteraciones, areas_parciales, 'b-o', linewidth=2, markersize=4)
-            ax.axhline(y=area_calculada, color='r', linestyle='--', label=f'Área final: {area_calculada:.2f} cm²')
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.plot(iteraciones, areas_parciales, 'b-o', linewidth=2)
+            ax.axhline(y=area_calculada, color='r', linestyle='--', label=f'Área final')
             ax.set_xlabel('Número de Puntos')
-            ax.set_ylabel('Área Estimada (cm²)')
-            ax.set_title('Convergencia del Método de Monte Carlo')
+            ax.set_ylabel('Área (cm²)')
             ax.legend()
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
@@ -125,33 +119,10 @@ else:
     st.markdown("""
     ### 📋 Instrucciones de Uso:
     
-    **📸 Para mejores resultados:**
-    1. **Fondo contrastante**: Figura oscura sobre fondo blanco, o viceversa
-    2. **Buena iluminación**: Evita sombras y reflejos
-    3. **Foto desde arriba**: Toma la foto perpendicular a la figura
-    4. **Figura completa**: Asegúrate que toda la figura esté visible
+    1. **Sube una imagen** usando el panel izquierdo
+    2. **Configura el área de referencia** (el área total que contiene tu figura)
+    3. **Elige cuántos puntos** quieres lanzar
+    4. **Haz clic en 'Calcular Área'**
     
-    **⚙️ Configuración recomendada:**
-    - **Área de referencia**: Mide el área total del rectángulo visible
-    - **Número de puntos**: Usa 5000-10000 para mejor precisión
-    
-    **🎯 Ejemplo práctico para estudiantes:**
-    - Coloca una hoja sobre papel milimetrado
-    - Calcula: Área referencia = ancho × alto del papel visible
-    - Toma foto y sube a la aplicación
-    - ¡Observa cómo converge el resultado!
-    
-    **🔢 Fórmula del método:**
-    ```
-    Área ≈ (Puntos dentro / Total puntos) × Área referencia
-    ```
+    💡 **Consejo:** Usa imágenes con buen contraste entre la figura y el fondo.
     """)
-
-# Información educativa
-st.sidebar.markdown("---")
-st.sidebar.info("""
-**🎓 Uso Educativo:**
-- Método de Monte Carlo para cálculo de áreas
-- Apropiado para matemáticas y estadística
-- Visualización interactiva del método
-""")
