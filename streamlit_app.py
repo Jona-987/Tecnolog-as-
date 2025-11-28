@@ -7,15 +7,13 @@ from PIL import Image
 # CONFIGURACIÓN DE LA PÁGINA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Monte Carlo - Estimación de Áreas",
+    page_title="Calculadora de Áreas - Monte Carlo",
     layout="wide"
 )
 
-st.title("Estimación de Áreas mediante Muestreo Aleatorio (Método de Monte Carlo)")
-st.markdown("""
-Esta herramienta permite estimar el área de una figura dentro de un rectángulo mediante el método de Monte Carlo.
-El usuario controla el área real del rectángulo, el número de puntos aleatorios generados y el umbral de detección.
-""")
+# Título principal
+st.title("Calculadora de Áreas con el Método de Monte Carlo")
+st.markdown("### Estimación de áreas mediante muestreo aleatorio")
 
 # ---------------------------------------------------------
 # SIDEBAR
@@ -27,78 +25,93 @@ uploaded_file = st.sidebar.file_uploader(
     type=["png", "jpg", "jpeg"]
 )
 
+# Área real del rectángulo
 rect_area = st.sidebar.number_input(
     "Área real del rectángulo (unidades²):",
-    min_value=1.0, value=100.0, step=1.0,
-    help="Este valor puede ser el área real del rectángulo físico en centímetros o metros."
+    min_value=1.0,
+    value=100.0,
+    step=1.0
 )
 
-n_points = st.sidebar.number_input(
-    "Cantidad total de puntos:",
+# Número total de puntos
+num_points = st.sidebar.number_input(
+    "Número total de puntos a generar:",
     min_value=1000,
     max_value=300000,
     value=20000,
     step=1000
 )
 
+# Umbral de detección
 threshold = st.sidebar.slider(
     "Umbral de detección (0 = muy estricto, 765 = muy permisivo):",
-    min_value=0, max_value=765, value=600
+    min_value=0,
+    max_value=765,
+    value=600
 )
 
+# Semilla
 seed = st.sidebar.number_input(
     "Semilla aleatoria (0 = aleatorio):",
-    min_value=0, max_value=999999, value=0
+    min_value=0,
+    max_value=999999,
+    value=0
 )
 
 # ---------------------------------------------------------
-# PROCESAMIENTO
+# PROCESAMIENTO PRINCIPAL: SIN RECORTES
 # ---------------------------------------------------------
 if uploaded_file is not None:
-
+    # Imagen ORIGINAL completa (sin recorte)
     image = Image.open(uploaded_file).convert("RGB")
-    img_array = np.array(image)
-    H, W, _ = img_array.shape
+    image_array = np.array(image)
+    H, W, _ = image_array.shape
 
     st.subheader("Imagen cargada")
     st.image(image, use_column_width=True)
 
-    st.markdown(f"**Dimensiones:** {W} × {H} px")
+    st.markdown(f"**Dimensiones de la imagen:** {W} × {H} px")
 
-    # -----------------------------------------------------
-    # GENERAR PUNTOS ALEATORIOS
-    # -----------------------------------------------------
+    # Generar puntos aleatorios
     if seed != 0:
         np.random.seed(seed)
 
-    xs = np.random.randint(0, W, n_points)
-    ys = np.random.randint(0, H, n_points)
+    xs = np.random.randint(0, W, num_points)
+    ys = np.random.randint(0, H, num_points)
 
-    sample_pixels = img_array[ys, xs]
-    brightness = sample_pixels.sum(axis=1)
+    sampled_pixels = image_array[ys, xs]
 
+    # Brillo → R + G + B
+    brightness = sampled_pixels.sum(axis=1)
+
+    # Detectamos si el punto pertenece a la figura
     inside_mask = brightness < threshold
     inside_count = inside_mask.sum()
 
-    # Estimación proporcional del área
-    area_estimada = (inside_count / n_points) * rect_area
-
-    st.subheader("Resultados")
-    st.write(f"Puntos generados: **{n_points}**")
-    st.write(f"Puntos dentro de la figura: **{inside_count}**")
-    st.write(f"Área estimada: **{area_estimada:.3f} unidades²**")
+    # Cálculo del área estimada
+    area_est = (inside_count / num_points) * rect_area
 
     # -----------------------------------------------------
-    # VISUALIZACIÓN DE PUNTOS
+    # RESULTADOS
+    # -----------------------------------------------------
+    st.subheader("Resultados")
+    col1, col2 = st.columns(2)
+
+    col1.metric("Puntos generados", f"{num_points:,}")
+    col1.metric("Puntos dentro de la figura", f"{inside_count:,}")
+    col2.metric("Área estimada", f"{area_est:.4f} unidades²")
+
+    # -----------------------------------------------------
+    # GRÁFICO DE PUNTOS
     # -----------------------------------------------------
     st.subheader("Visualización del muestreo")
-    fig, ax = plt.subplots(figsize=(7, 6))
-    ax.imshow(img_array)
-    ax.scatter(xs[inside_mask], ys[inside_mask], s=1, color="red")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title("Puntos detectados dentro de la figura")
-    st.pyplot(fig)
+    fig1, ax1 = plt.subplots(figsize=(7, 6))
+    ax1.imshow(image_array)
+    ax1.scatter(xs[inside_mask], ys[inside_mask], s=1, color="red")
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax1.set_title("Puntos detectados dentro de la figura")
+    st.pyplot(fig1)
 
     # -----------------------------------------------------
     # GRÁFICO DE CONVERGENCIA
@@ -106,10 +119,12 @@ if uploaded_file is not None:
     st.subheader("Gráfico de convergencia del área estimada")
 
     partial_areas = []
-    for k in range(1, n_points):
-        inside_partial = inside_mask[:k].sum()
-        partial_area = (inside_partial / k) * rect_area
-        partial_areas.append(partial_area)
+    inside_so_far = 0
+
+    for k in range(1, num_points + 1):
+        if inside_mask[k-1]:
+            inside_so_far += 1
+        partial_areas.append((inside_so_far / k) * rect_area)
 
     fig2, ax2 = plt.subplots(figsize=(7, 4))
     ax2.plot(partial_areas)
